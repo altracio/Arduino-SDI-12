@@ -86,7 +86,9 @@ private:
     static uint8_t parity_even_bit(uint8_t v);
   #endif
 
-  uint8_t _dataPin;               // reference to the data pin
+  uint8_t _rxPin;               // reference to the data pin
+  uint8_t _txPin;               // reference to the data pin
+  uint8_t _txPinEn;               // reference to the data pin
 
   static uint8_t _rxBuffer[SDI12_BUFFER_SIZE];  // A single buffer for ALL SDI-12 objects
   static volatile uint8_t _rxBufferTail;
@@ -95,11 +97,13 @@ private:
 
 
 public:
-  SDI12();                          // constructor - without argument, for better library integration
-  SDI12(uint8_t dataPin);           // constructor
+  SDI12(
+    uint8_t rxPin,
+    uint8_t txPin,
+    uint8_t txPinEn
+  );                                // constructor
   ~SDI12();                         // destructor
   void begin();                     // enable SDI-12 object
-  void begin(uint8_t dataPin);      // enable SDI-12 object - if you use the empty constuctor, USE THIS
   void end();                       // disable SDI-12 object
   int TIMEOUT;                      // value to return if a parse times out
   void setTimeoutValue(int value);  // sets the value to return if a parse int or parse float times out
