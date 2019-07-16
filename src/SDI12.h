@@ -54,6 +54,9 @@ typedef const __FlashStringHelper *FlashString;
 #define NO_IGNORE_CHAR '\x01' // a char not found in a valid ASCII numeric field
 #define SDI12_BUFFER_SIZE 64   // max Rx buffer size
 
+#define SDI_HIGH LOW
+#define SDI_LOW HIGH
+
 class SDI12 : public Stream
 {
 protected:

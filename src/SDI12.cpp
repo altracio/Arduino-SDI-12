@@ -623,11 +623,11 @@ void SDI12::setState(SDI12_STATES state){
     case HOLDING:
     {
       pinMode(_txPinEn, OUTPUT);
-      digitalWrite(_txPinEn, HIGH);
+      digitalWrite(_txPinEn, LOW);
 
-      pinMode(_txPin, INPUT);     // Turn off the pull-up resistor
+      // pinMode(_txPin, INPUT);     // Turn off the pull-up resistor
       pinMode(_txPin, OUTPUT);    // Pin mode = output
-      digitalWrite(_txPin, LOW);  // Pin state = low - hold the line low
+      digitalWrite(_txPin, SDI_LOW);  // Pin state = low - hold the line low
 
       setPinInterrupts(false);    // Interrupts disabled on data pin
       break;
@@ -635,9 +635,9 @@ void SDI12::setState(SDI12_STATES state){
     case TRANSMITTING:
     {
       pinMode(_txPinEn, OUTPUT);
-      digitalWrite(_txPinEn, HIGH);
+      digitalWrite(_txPinEn, LOW);
 
-      pinMode(_txPin, INPUT);     // Turn off the pull-up resistor
+      // pinMode(_txPin, INPUT);     // Turn off the pull-up resistor
       pinMode(_txPin, OUTPUT);    // Pin mode = output
 
       setPinInterrupts(false);      // Interrupts disabled on data pin
@@ -646,10 +646,11 @@ void SDI12::setState(SDI12_STATES state){
     case LISTENING:
     {
       pinMode(_txPinEn, OUTPUT);
-      digitalWrite(_txPinEn, LOW); // Turn off the TX output
+      digitalWrite(_txPinEn, HIGH); // Turn off the TX output
 
-      digitalWrite(_txPin, LOW);  // Pin state = low
-      pinMode(_txPin, INPUT);     // Pin mode = input, pull-up resistor off
+      pinMode(_txPin, OUTPUT);        // Pin mode = output
+      digitalWrite(_txPin, SDI_LOW);  // Pin state = low
+      // pinMode(_txPin, INPUT);     // Pin mode = input, pull-up resistor off
 
       interrupts();                 // Enable general interrupts
       setPinInterrupts(true);       // Enable Rx interrupts on data pin
@@ -659,10 +660,11 @@ void SDI12::setState(SDI12_STATES state){
     default:  // DISABLED or ENABLED
     {
       pinMode(_txPinEn, OUTPUT);
-      digitalWrite(_txPinEn, LOW); // Turn off the TX output
+      digitalWrite(_txPinEn, HIGH); // Turn off the TX output
 
-      digitalWrite(_txPin, LOW); // Pin state = low
-      pinMode(_txPin, INPUT);    // Pin mode = input, pull-up resistor off
+      pinMode(_txPin, OUTPUT);    // Pin mode = output
+      digitalWrite(_txPin, SDI_LOW); // Pin state = low
+      // pinMode(_txPin, INPUT);    // Pin mode = input, pull-up resistor off
 
       setPinInterrupts(false);      // Interrupts disabled on data pin
       break;
@@ -722,9 +724,9 @@ void SDI12::wakeSensors() {
   // Universal interrupts can be on while the break and marking happen because
   // timings for break and from the recorder are not critical.
   // Interrupts on the pin are disabled for the entire transmitting state
-  digitalWrite(_txPin, HIGH);
+  digitalWrite(_txPin, SDI_HIGH);
   delayMicroseconds(lineBreak_micros);  // Required break of 12 milliseconds
-  digitalWrite(_txPin, LOW);
+  digitalWrite(_txPin, SDI_LOW);
   delayMicroseconds(marking_micros);  // Required marking of 8.33 milliseconds
 }
 
@@ -736,7 +738,7 @@ void SDI12::writeChar(uint8_t outChar) {
   noInterrupts();  // _ALL_ interrupts disabled so timing can't be shifted
 
   uint8_t t0 = TCNTX; // start time
-  digitalWrite(_txPin, HIGH);  // immediately get going on the start bit
+  digitalWrite(_txPin, SDI_HIGH);  // immediately get going on the start bit
   // this gives us 833µs to calculate parity and position of last high bit
   currentTxBitNum++;
 
@@ -762,10 +764,10 @@ void SDI12::writeChar(uint8_t outChar) {
   while (currentTxBitNum++ < lastHighBit) {
     bitValue = outChar & 0x01;  // get next bit in the character to send
     if (bitValue){
-      digitalWrite(_txPin, LOW);  // set the pin state to LOW for 1's
+      digitalWrite(_txPin, SDI_LOW);  // set the pin state to LOW for 1's
     }
     else{
-      digitalWrite(_txPin, HIGH);  // set the pin state to HIGH for 0's
+      digitalWrite(_txPin, SDI_HIGH);  // set the pin state to HIGH for 0's
     }
     // Hold the line for this bit duration
     while ((uint8_t)(TCNTX - t0) < txBitWidth) {}
@@ -774,7 +776,7 @@ void SDI12::writeChar(uint8_t outChar) {
   }
 
   // Set the line low for the all remaining 1's and the stop bit
-  digitalWrite(_txPin, LOW);
+  digitalWrite(_txPin, SDI_LOW);
 
   interrupts(); // Re-enable universal interrupts as soon as critical timing is past
 
@@ -825,7 +827,7 @@ void SDI12::sendCommand(FlashString cmd) {
 //        acting as an SDI-12 device rather than a recorder).
 void SDI12::sendResponse(String &resp) {
   setState(TRANSMITTING);   // Get ready to send data to the recorder
-  digitalWrite(_txPin, LOW);
+  digitalWrite(_txPin, SDI_LOW);
   delayMicroseconds(marking_micros);  // 8.33 ms marking before response
   for (int unsigned i = 0; i < resp.length(); i++){
     writeChar(resp[i]);     // write each character
@@ -835,7 +837,7 @@ void SDI12::sendResponse(String &resp) {
 
 void SDI12::sendResponse(const char *resp) {
   setState(TRANSMITTING);   // Get ready to send data to the recorder
-  digitalWrite(_txPin, LOW);
+  digitalWrite(_txPin, SDI_LOW);
   delayMicroseconds(marking_micros);  // 8.33 ms marking before response
   for (int unsigned i = 0; i < strlen(resp); i++){
     writeChar(resp[i]);     // write each character
@@ -845,7 +847,7 @@ void SDI12::sendResponse(const char *resp) {
 
 void SDI12::sendResponse(FlashString resp) {
   setState(TRANSMITTING);   // Get ready to send data to the recorder
-  digitalWrite(_txPin, LOW);
+  digitalWrite(_txPin, SDI_LOW);
   delayMicroseconds(marking_micros);  // 8.33 ms marking before response
   for (int unsigned i = 0; i < strlen_P((PGM_P)resp); i++){
     writeChar((char)pgm_read_byte((const char *)resp + i));  // write each character
@@ -899,7 +901,7 @@ void SDI12::startChar()
 void SDI12::receiveISR()
 {
   uint8_t thisBitTCNT = TCNTX;               // time of this data transition (plus ISR latency)
-  uint8_t pinLevel = digitalRead(_rxPin);  // current RX data level
+  uint8_t pinLevel = !digitalRead(_rxPin);  // current RX data level
 
   // Check if we're ready for a start bit, and if this could possibly be it
   // Otherwise, just ignore the interrupt and exit
